@@ -21,7 +21,7 @@ namespace SqlAzureBakMaker
             Database sourceDatabase = sourceServer.Databases[parms.SourceDatabase];
 
             //Set Destination SQL Server (SQL IaaS)
-            Server destServer = new Server(new ServerConnection(parms.DestinationServer, parms.DestinationUser, parms.DestinationPassword));
+            Server destServer = new Server(new ServerConnection(parms.DestinationServer));
             Database destDatabase = null;
 
             //Drop the detination database if it exits
@@ -73,28 +73,15 @@ namespace SqlAzureBakMaker
 
             Console.WriteLine("Transfer Complete!");
 
-            //Create a backup credential in the SQL IaaS instance to perform the backup to Azure Blob
-            Console.Write("Creating Backup Credential...");
-            if (destServer.Credentials.Contains("BackupCred"))
-            {
-                Console.Write(" Dropping ");
-                destServer.Credentials["BackupCred"].Drop();
-            }
+            string filename = $"{parms.BakPath}/{DateTime.UtcNow:yyyy-MM-dd-HH-mm}.bak";
 
-            Credential credential = new Credential(destServer, "BackupCred");
-            credential.Create(parms.StorageAccountName, parms.StorageKey);
-            Console.WriteLine(" Complete!");
-
-            string storageEndpoint = $"https://{parms.StorageAccountName}.{parms.StorageEndpointBase}/{parms.StorageContainer}/{parms.StorageFileBase}-{DateTime.UtcNow:yyyy-MM-dd-HH-mm}.bak";
-
-            //Perform the backup from SQL IaaS to Azure Blob
+            //Perform the backup from SQL IaaS to file
             //https://msdn.microsoft.com/en-us/library/dn435916.aspx
             Console.WriteLine("Starting Backup...");
             Backup backup = new Backup();
             backup.Action = BackupActionType.Database;
             backup.Database = parms.DestinationDatabase;
-            backup.Devices.Add(new BackupDeviceItem(storageEndpoint, DeviceType.Url, "BackupCred"));
-            backup.CredentialName = "BackupCred";
+            backup.Devices.Add(new BackupDeviceItem(filename, DeviceType.File));
             backup.Incremental = false;
             backup.SqlBackup(destServer);
             Console.WriteLine("Backup Complete!");
